@@ -32,6 +32,8 @@ library(wordcloud2)
 library(gridExtra)
 library(ngram)
 library(shiny) 
+library(igraph)
+library(ggraph)
 ```
 
 ### Step 1 - Load the processed text data along with demographic information on contributors
