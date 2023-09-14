@@ -1,18 +1,42 @@
 ---
-title: "R Notebook"
+title: "ADS Project 1: Geospatial Analysis of Happiness"
 output: html_notebook
 ---
+```{r}
+# Loading Data and packages
+library(tidyverse)
+library(ggplot2)
+library(maps)
+library(countrycode)
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+hdb <- read.csv("processed_moments_w_demog.csv")
+``` 
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+# Introduction
+
+[Description of the data project, the variables of analysis, and rationale]
+
+# Geographic Distribution of data set
 
 ```{r}
-plot(cars)
+country_count <- table(hdb$country) %>% as.data.frame()
+
+colnames(country_count) <- c("country_code", "freq")
+
+world_map <- map_data("world")
+
+world_map$region <- countrycode(world_map$region, 
+                                          "country.name", 
+                                          "iso3c")
+
+mapdata <- left_join(world_map, country_count, 
+                     by = c("region" = "country_code"))
+
+map1 <- ggplot(mapdata, aes(x = long, y = lat, group = group)) + 
+  geom_polygon(aes(fill = log(freq)), color = "black") + 
+  scale_fill_gradient(name = "Moments (Log Scale)",
+                      low = "blue", high = "red", 
+                      na.value = "grey", 
+                      breaks = c(log(10000), log(1000), log(100), log(10)), 
+                      labels = c("10000", "1000", "100", "10"))
 ```
-
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
-
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
-
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
