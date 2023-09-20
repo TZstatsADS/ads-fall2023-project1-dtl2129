@@ -1,0 +1,99 @@
+---
+title: 'ADS Project 1: Geospatial Analysis of Happiness'
+output:
+  html_document:
+    df_print: paged
+runtime: shiny
+---
+
+```{r, include = FALSE}
+# Loading Data and packages
+
+library(tidyverse)
+library(ggplot2)
+library(maps)
+library(countrycode)
+library(tm)
+library(topicmodels)
+library(flashClust)
+library(tidytext)
+library(shiny)
+library(wordcloud2)
+library(DT)
+
+# hdb <- read.csv("../doc/processed_moments_w_demog.csv")
+```
+
+## Introduction
+
+## Geographic Distribution of Data Set
+
+```{r, echo = FALSE}
+renderImage(list(src="../figs/Frequency_Map.png"))
+```
+
+<br><br><br>
+
+## Top Words by Country
+
+```{r, echo = FALSE}
+source("../doc/Top Words Shiny App.R")
+
+shinyApp(ui, server)
+```
+
+## LDA Topic Modeling
+
+```{r, echo = FALSE}
+renderImage(list(src="../figs/Top Terms by Topic.png"))
+```
+
+<br><br><br><br><br><br><br><br><br>
+
+## Topic Prevalence by Country
+
+### Topic 1 (Shopping) 
+
+```{r, echo = FALSE}
+renderImage(list(src="../figs/Topic 1 Terms Map.png"))
+```
+
+<br><br>
+
+### Topic 2 (At Home with Family)
+
+```{r, echo = FALSE}
+renderImage(list(src="../figs/Topic 2 Terms Map.png"))
+```
+
+<br><br>
+
+### Topic 3 (Time with Friends)
+
+```{r, echo = FALSE}
+renderImage(list(src="../figs/Topic 3 Terms Map.png"))
+```
+
+<br><br>
+
+### Topic 4 (Food)
+
+```{r, echo = FALSE}
+renderImage(list(src="../figs/Topic 4 Terms Map.png"))
+```
+
+<br><br>
+
+### Topic 5 (Generic Happiness)
+
+```{r, echo = FALSE}
+renderImage(list(src="../figs/Topic 5 Terms Map.png"))
+```
+
+<br><br><br><br><br><br>
+
+```{r, echo = FALSE}
+source("../doc/Final Data Table Shiny.R")
+
+shinyApp(ui, server)
+```

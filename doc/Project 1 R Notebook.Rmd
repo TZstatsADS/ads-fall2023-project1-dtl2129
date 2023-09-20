@@ -1,0 +1,404 @@
+---
+title: "ADS Project 1: Geospatial Analysis of Happiness"
+output: html_notebook
+---
+```{r}
+# Loading Data and packages
+
+library(tidyverse)
+library(ggplot2)
+library(maps)
+library(countrycode)
+library(tm)
+library(topicmodels)
+library(flashClust)
+library(tidytext)
+library(shiny)
+library(wordcloud2)
+library(DT)
+
+hdb <- read.csv("processed_moments_w_demog.csv")
+``` 
+
+# Introduction
+
+[Description of the data project, the variables of analysis, and rationale]
+
+# Geographic Distribution of data set
+
+```{r}
+country_count <- table(hdb$country) %>% as.data.frame()
+
+colnames(country_count) <- c("country_code", "freq")
+
+world_map <- map_data("world")
+
+world_map$region <- countrycode(world_map$region, 
+                                          "country.name", 
+                                          "iso3c")
+
+mapdata <- left_join(world_map, country_count, 
+                     by = c("region" = "country_code"))
+
+map1 <- ggplot(mapdata, aes(x = long, y = lat, group = group)) + 
+  geom_polygon(aes(fill = log(freq)), color = "black") + 
+  scale_fill_gradient(name = "Moments (Log Scale)",
+                      low = "blue", high = "red", 
+                      na.value = "grey", 
+                      breaks = c(log(10000), log(1000), log(100), log(10)), 
+                      labels = c("10000", "1000", "100", "10"))
+
+ggsave(filename = "Frequency_Map.png", plot = map1, width = 8, height = 4, 
+       path = "../figs/")
+```
+
+Creating DTM Objects
+
+```{r}
+# Full DTM
+
+corpus <- Corpus(VectorSource(hdb$text))
+
+dtm <- DocumentTermMatrix(corpus, 
+                          control = list(wordLengths = c(1, Inf)))
+
+tfidf <- weightTfIdf(dtm)
+```
+
+Most Frequent and Distinctive Terms by Country
+
+```{r}
+analyze_country <- function(country) {
+  # Extract the ISO3C code entered by the user
+  
+  if(country %in% countryname_dict$country.name.en){
+    iso3c <- countrycode(country, "country.name", "iso3c")
+  }
+  
+  else if(country %in% codelist$iso3c){
+    iso3c <- country
+  }
+  
+  else {
+    print("Invalid Country Name")
+  }
+  
+  # Subset hdb
+  
+  ctry_df <- hdb[hdb$country == iso3c,]
+  
+  ctry_df <- ctry_df[complete.cases(ctry_df[,c("wid")]),] 
+  
+  # Subset DTM
+  
+  sub_dtm <- dtm[as.integer(row.names(ctry_df)),]
+  
+  word_freq <- sub_dtm %>% as.matrix() %>% colSums()
+  
+  top_words <- head(sort(word_freq, decreasing = T), 10)
+  
+  top_words_df <- data.frame(word = names(top_words), 
+                             freq = top_words)
+  
+  freq_plot <- ggplot(top_words_df, aes(reorder(word, freq), freq)) +
+    geom_bar(stat="identity", fill = "lightblue") + 
+    coord_flip() + 
+    labs(title = paste0("Ten Most Common Happy Words in ", 
+                        countrycode(iso3c, "iso3c", "country.name")),
+         y = "Frequency", 
+         x = "Word")
+  
+  # Tf-Idf Subset
+  
+  # Subset the data for the selected country
+  
+  country_indices <- which(hdb$country == iso3c)
+  
+  tfidf_country <- tfidf[country_indices, ]
+  
+  # Subset the data for all other countries (excluding the selected country)
+  
+  other_indices <- which(hdb$country != iso3c)
+  
+  tfidf_others <- tfidf[other_indices, ]
+  
+  # Calculate distinctiveness score
+  
+  avg_tfidf_country <- colMeans(as.matrix(tfidf_country))
+  
+  avg_tfidf_others <- apply(tfidf_others, 2, mean)
+  
+  distinctiveness_score <- avg_tfidf_country - avg_tfidf_others
+  
+  top_distinctive_words <- head(sort(distinctiveness_score, decreasing = TRUE),
+                                10)
+  
+  top_distinctive_words_df <- data.frame(word = names(top_distinctive_words), 
+                             dist = top_distinctive_words)
+  
+  distinctive_plot <- ggplot(top_distinctive_words_df, 
+                      aes(reorder(word, dist), dist)) +
+    geom_bar(stat="identity", fill = "lightblue") + 
+    coord_flip() + 
+    labs(title = paste0("Ten Most Distinctive Happy Words in ", 
+                        countrycode(iso3c, "iso3c", "country.name")),
+         y = "Distinctiveness Score", 
+         x = "Word")
+  
+  return(list(freq_plot, 
+              distinctive_plot))
+
+}
+
+```
+
+Create Results for Each Country and Save
+
+```{r}
+# Create a list to store results for each country
+results_list <- list()
+
+# Loop through all countries
+# for (country in unique(hdb$country)) {
+  # Calculate results for each country
+  result <- analyze_country(country)
+  results_list[[country]] <- result
+}
+
+# Save the results to a CSV file
+saveRDS(results_list, file = "precomputed_results.rds")
+```
+
+Create Shiny App
+
+```{r shiny UI, warning=FALSE, message=FALSE}
+# Define the UI for the Shiny app
+ui <- fluidPage(
+  titlePanel("Happy Words Analysis"),
+  sidebarLayout(
+    sidebarPanel(
+      textInput("country_input", "Enter Country Name or ISO3C Code:", ""),
+      actionButton("analyze_button", "Analyze")
+    ),
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Top Common Words", plotOutput("freq_plot")),
+        tabPanel("Top Distinctive Words", plotOutput("distinctive_plot")),
+      )
+    )
+  )
+)
+
+# Define the server logic
+
+server <- function(input, output) {
+  
+  # Load precomputed results
+  
+  precomputed_results <- readRDS("precomputed_results.rds")
+
+  # Analyze the country and update plots
+  
+  observeEvent(input$analyze_button, {
+    country <- input$country_input
+    
+    # Check if the entered country name is in the dictionary
+    if (country %in% countryname_dict$country.name.en) {
+      iso3c <- countrycode(country, "country.name", "iso3c")
+    } else if (country %in% codelist$iso3c) {
+      iso3c <- country
+    } else {
+      # Invalid country name
+      iso3c <- NULL
+      showModal(modalDialog(
+        title = "Error",
+        "Invalid Country Name",
+        footer = NULL
+      ))
+    }
+    
+    # Proceed only if a valid country code is obtained
+    if (!is.null(iso3c)) {
+      # Check if precomputed results exist for the country
+      if (iso3c %in% names(precomputed_results)) {
+        results <- precomputed_results[[iso3c]]
+      } else {
+        # Calculate results in real-time
+        results <- c("No Results", "No Results")
+      }
+
+      output$freq_plot <- renderPlot(results[[1]])
+      output$distinctive_plot <- renderPlot(results[[2]])
+    }
+  })
+}
+
+
+# Create Shiny app
+shinyApp(ui, server)
+```
+
+LDA Classification
+
+```{r}
+# Apply LDA
+num_topics <- 5
+
+lda_model <- LDA(dtm, k = num_topics, control = list(seed=356246), 
+                 method = "Gibbs")
+
+saveRDS(lda_model, "../doc/lda_model.rds")
+
+tidy_lda <- tidy(lda_model)
+
+top_terms <- tidy_lda %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+
+top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_y_reordered()
+
+ggsave("Top Terms by Topic.png", path = "../figs/")
+```
+
+
+
+```{r}
+lda_model <- readRDS("../doc/lda_model.rds")
+
+gammas <- tidy(lda_model, matrix = "gamma")
+
+gammas_wider <- pivot_wider(gammas, id_cols = document, 
+                            names_from = topic,
+                            values_from = gamma)
+
+gammas_country <- cbind(gammas_wider, hdb$country)
+
+topic_cats <- c("Shopping", "At Home with Family", 
+                "Time with Friends", "Food", "Generic Happiness")
+
+colnames(gammas_country) <- c("document", 
+                              paste0("Topic ", c(1:5), 
+                                     " ", "(", c(topic_cats), ")"), 
+                              "country")
+
+country_avg_gammas <- gammas_country %>%
+  group_by(country) %>%
+  summarize(
+    `Topic 1 (Shopping)` = mean(`Topic 1 (Shopping)`, na.rm = TRUE),
+    `Topic 2 (At Home with Family)` = mean(`Topic 2 (At Home with Family)`, 
+                                       na.rm = TRUE),
+    `Topic 3 (Time with Friends)` = mean(`Topic 3 (Time with Friends)`, 
+                                       na.rm = TRUE),
+    `Topic 4 (Food)` = mean(`Topic 4 (Food)`, na.rm = TRUE),
+    `Topic 5 (Generic Happiness)` = mean(`Topic 5 (Generic Happiness)`, 
+                                       na.rm = TRUE))
+```
+
+
+```{r}
+topic_map_data <- left_join(world_map, country_avg_gammas, 
+                     by = c("region" = "country"))
+
+map_topic_1 <- ggplot(topic_map_data, aes(x = long, y = lat, group = group)) + 
+  geom_polygon(aes(fill = `Topic 1 (Shopping)`), color = "black") + 
+  scale_fill_gradient(name = "Shopping Score", 
+                      low = "blue", high = "red", 
+                       na.value = "grey")
+
+ggsave("Topic 1 Terms Map.png", map_topic_1, path = "../figs/", 
+       width = 8, height = 4)
+
+map_topic_2 <- ggplot(topic_map_data, aes(x = long, y = lat, group = group)) + 
+  geom_polygon(aes(fill = `Topic 2 (At Home with Family)`), color = "black") + 
+  scale_fill_gradient(name = "At Home with Family Score", 
+                      low = "blue", high = "red", 
+                       na.value = "grey")
+
+ggsave("Topic 2 Terms Map.png", map_topic_2, path = "../figs/", 
+       width = 8, height = 4)
+
+map_topic_3 <- ggplot(topic_map_data, aes(x = long, y = lat, group = group)) + 
+  geom_polygon(aes(fill = `Topic 3 (Time with Friends)`), color = "black") + 
+  scale_fill_gradient(name = "Time with Friends Score", 
+                      low = "blue", high = "red", 
+                       na.value = "grey")
+
+ggsave("Topic 3 Terms Map.png", map_topic_3, path = "../figs/", 
+       width = 8, height = 4)
+
+map_topic_4 <- ggplot(topic_map_data, aes(x = long, y = lat, group = group)) + 
+  geom_polygon(aes(fill = `Topic 4 (Food)`), color = "black") + 
+  scale_fill_gradient(name = "Food Score", 
+                      low = "blue", high = "red", 
+                       na.value = "grey")
+
+ggsave("Topic 4 Terms Map.png", map_topic_4, path = "../figs/", 
+       width = 8, height = 4)
+
+map_topic_5 <- ggplot(topic_map_data, aes(x = long, y = lat, group = group)) + 
+  geom_polygon(aes(fill = `Topic 5 (Generic Happiness)`), color = "black") + 
+  scale_fill_gradient(name = "Generic Happiness Score", 
+                      low = "blue", high = "red", 
+                       na.value = "grey")
+
+ggsave("Topic 5 Terms Map.png", map_topic_5, path = "../figs/", 
+       width = 8, height = 4)
+```
+
+
+```{r}
+country_comment_counts <- hdb %>%
+  group_by(country) %>%
+  summarise(`Comment Count` = n())
+
+count_gamma_df <- left_join(country_avg_gammas, country_comment_counts)
+
+count_gamma_df$country.name <- countrycode(count_gamma_df$country, 
+                                           "iso3c", "country.name")
+
+write.csv(count_gamma_df, file = "count_gamma_df.csv")
+```
+
+
+```{r shiny UI 2, warning=FALSE, message=FALSE}
+read.csv("../output/count_gamma_df.csv")
+
+ui <- fluidPage(
+  titlePanel("Searchable Data Table"),
+  sidebarLayout(
+    sidebarPanel(
+      # Add any additional input elements here (if needed)
+    ),
+    mainPanel(
+      DTOutput("data_table")
+    )
+  )
+)
+
+server <- function(input, output) {
+  output$data_table <- renderDT({
+    datatable(
+      count_gamma_df,
+      options = list(
+        searching = TRUE,  # Enable search functionality
+        pageLength = 10    # Number of rows per page
+      )
+    )
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+
+
+
+
