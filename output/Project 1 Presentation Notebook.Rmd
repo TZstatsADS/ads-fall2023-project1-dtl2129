@@ -1,5 +1,5 @@
 ---
-title: 'ADS Project 1: Geospatial Analysis of Happiness'
+title: 'ADS Project 1: A Geospatial Analysis of Happiness'
 output:
   html_document:
     df_print: paged
@@ -26,7 +26,22 @@ library(DT)
 
 ## Introduction
 
+In a world as diverse as ours, the pursuit of happiness is a timeless and 
+universal quest. What brings joy to one person may differ greatly from another, 
+and geography often plays a significant role in shaping our experiences. In our
+data-driven age, we have the unique opportunity to explore the intricacies of 
+happiness through the lens of geospatial analysis. This blog post delves deep
+into a database of "happy moments" contributed by individuals spanning the 
+globe. By examining these moments in a geospatial context, we aim to uncover 
+the fascinating connections between location, culture, and human well-being. 
+
 ## Geographic Distribution of Data Set
+
+First, I think it's important to investigate the data set itself. Where are 
+people submitting their happy moments from? Below, I have displayed the number of
+responses submitted from each country on a world map. Note that a log scale is
+used, as some countries had many more happy moments submitted than other 
+countries did.
 
 ```{r, echo = FALSE}
 renderImage(list(src="../figs/Frequency_Map.png"))
@@ -34,7 +49,20 @@ renderImage(list(src="../figs/Frequency_Map.png"))
 
 <br><br><br>
 
+Here we can see that the data set is drawn primarily from respondents in the 
+United States and India. However, many other countries are still represented, 
+albeit by much smaller samples.
+
+<br><br><br>
+
 ## Top Words by Country
+
+Now that we've established where the happy moments come from in the data set, 
+we can examine what words are being used by people in different countries. The 
+interactive below will allow you to investigate what the most used words are
+in happy moments from each country. Additionally, the words that are most 
+distinct for one country compared to another (as calculated using the TF-IDF 
+weights) are also visible in the interactive.
 
 ```{r, echo = FALSE}
 source("../doc/Top Words Shiny App.R")
@@ -42,7 +70,17 @@ source("../doc/Top Words Shiny App.R")
 shinyApp(ui, server)
 ```
 
+As you may notice, many words, such as "friend" or "time", are commonly used in 
+many countries. However, the distinctive words vary greatly between countries 
+and may reflect diverse sources of happiness that vary between countries.
+
 ## LDA Topic Modeling
+
+One method to investigate what diverse source of happiness exist in the happy 
+moments database is Latent Dirichlet allocation (LDA), which will allow us
+to identify certain topics that are identifiable in the database. Note that I 
+used a Gibbs sampling method in order to produce more discrete and interpretable
+topics.
 
 ```{r, echo = FALSE}
 renderImage(list(src="../figs/Top Terms by Topic.png"))
@@ -50,7 +88,29 @@ renderImage(list(src="../figs/Top Terms by Topic.png"))
 
 <br><br><br><br><br><br><br><br><br>
 
+As you can see, some patterns begin to emerge in these five topic categories, 
+potentially allowing us to see each of them as a source of happiness. 
+
+Topic 1 seems to correspond to shopping or going out, with words like "bought" and 
+"trip". 
+
+Topic 2 appears to reflect family and the home as a source of happiness.
+
+Topic 3, meanwhile, seems to center around spending time with friends doing 
+activities.
+
+Topic 4, using words like "dinner" and "eat", seems to indicate that food may be
+another important source of happiness for individuals.
+
+Finally, topic 5 does not paint a clear picture of a happiness source, instead 
+including more nebulous and nonspecific terms we might call generic happiness.
+
 ## Topic Prevalence by Country
+
+With these topics now established, we can examine which ones are most 
+influential in individual countries. By averaging the topic probabilities of 
+each comment in each country, we can obtain a metric to measure the importance 
+of each source of happiness in each country. 
 
 ### Topic 1 (Shopping) 
 
@@ -60,6 +120,9 @@ renderImage(list(src="../figs/Topic 1 Terms Map.png"))
 
 <br><br>
 
+Shopping and going out appears to be a source of happiness across most nations, 
+with particular strength in Central Asia, Europe, and the Southern Cone.
+
 ### Topic 2 (At Home with Family)
 
 ```{r, echo = FALSE}
@@ -67,6 +130,9 @@ renderImage(list(src="../figs/Topic 2 Terms Map.png"))
 ```
 
 <br><br>
+
+Family is a very important source of happiness globally, although it's influence
+is even stronger in South Asia and parts of Northern Europe.
 
 ### Topic 3 (Time with Friends)
 
@@ -76,6 +142,10 @@ renderImage(list(src="../figs/Topic 3 Terms Map.png"))
 
 <br><br>
 
+Time with friends does not seem to have a very strong regional pattern, although
+some nations (albeit those with small sample sizes) do seem to have their
+happiness more influenced by friends.
+
 ### Topic 4 (Food)
 
 ```{r, echo = FALSE}
@@ -84,13 +154,33 @@ renderImage(list(src="../figs/Topic 4 Terms Map.png"))
 
 <br><br>
 
+Food is a strong source of happiness throughout much of the world, although 
+South Asian nations seem to be affected less by this source of happiness.
+
 ### Topic 5 (Generic Happiness)
 
 ```{r, echo = FALSE}
 renderImage(list(src="../figs/Topic 5 Terms Map.png"))
 ```
 
-<br><br><br><br><br><br>
+<br><br><br>
+
+Generic happiness, meanwhile, is largely evenly distributed, with only a handful
+of countries (which each have a low number of respondents) having this influence
+elevated.
+
+## Conclusions
+
+Our geospatial analysis of happiness has illuminated the diverse facets of human well-being across the globe. While the dataset predominantly comprises 
+submissions from the United States and India, it offers a rich tapestry of 
+joyful moments from various countries. Through word analysis and topic modeling,
+we've discerned distinct sources of happiness, such as shopping, family, time 
+with friends, food, and a broader sense of generic happiness. These sources 
+exhibit varying degrees of influence on happiness across nations, reflecting the
+intricate interplay of culture, geography, and individual experiences in the 
+pursuit of happiness.
+
+## Explore on Your Own
 
 ```{r, echo = FALSE}
 source("../doc/Final Data Table Shiny.R")
