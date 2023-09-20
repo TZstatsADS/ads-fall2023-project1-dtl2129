@@ -1,4 +1,5 @@
 library(shiny)
+library(countrycode)
 
 # Define the UI for the Shiny app
 ui <- fluidPage(
@@ -23,7 +24,7 @@ server <- function(input, output) {
   
   # Load precomputed results
   
-  precomputed_results <- readRDS("../doc/precomputed_results.rds")
+  precomputed_results <- readRDS("../output/precomputed_results.rds")
   
   # Analyze the country and update plots
   

@@ -13,15 +13,17 @@ library(shiny)
 library(wordcloud2)
 library(DT)
 
-hdb <- read.csv("../doc/processed_moments_w_demog.csv")
+hdb <- read.csv("../output/processed_moments_w_demog.csv")
 ``` 
 
-# Geographic Distribution of data set
-
 ```{r}
+# Count number of moments by country
+
 country_count <- table(hdb$country) %>% as.data.frame()
 
 colnames(country_count) <- c("country_code", "freq")
+
+# Merge count data with polygon data for map making
 
 world_map <- map_data("world")
 
@@ -31,6 +33,8 @@ world_map$region <- countrycode(world_map$region,
 
 mapdata <- left_join(world_map, country_count, 
                      by = c("region" = "country_code"))
+
+# Create the map using a log scale
 
 map1 <- ggplot(mapdata, aes(x = long, y = lat, group = group)) + 
   geom_polygon(aes(fill = log(freq)), color = "black") + 
@@ -44,33 +48,35 @@ ggsave(filename = "Frequency_Map.png", plot = map1, width = 8, height = 4,
        path = "../figs/")
 ```
 
-Creating DTM Objects
-
 ```{r}
-# Full DTM
+# Create DTM object for analysis and save
 
 corpus <- Corpus(VectorSource(hdb$text))
 
 dtm <- DocumentTermMatrix(corpus, 
                           control = list(wordLengths = c(1, Inf)))
 
+# Create TF-IDF for distinctiveness applications
+
 tfidf <- weightTfIdf(dtm)
 
-saveRDS(dtm, "../doc/dtm.rds")
+saveRDS(dtm, "../output/dtm.rds")
 
-saveRDS(dtm,"../doc/tfidf.rds")
+saveRDS(dtm,"../output/tfidf.rds")
 ```
 
-LDA Classification
-
 ```{r}
-# Apply LDA
+# LDA Classification with reasonable number of topics
 num_topics <- 5
 
 lda_model <- LDA(dtm, k = num_topics, control = list(seed=356246), 
-                 method = "Gibbs")
+                 method = "Gibbs") 
 
-saveRDS(lda_model, "../doc/lda_model.rds")
+# Gibbs sampling for greater distinctiveness between topics
+
+saveRDS(lda_model, "../output/lda_model.rds")
+
+# Plot the top terms
 
 tidy_lda <- tidy(lda_model)
 
@@ -91,7 +97,9 @@ ggsave("Top Terms by Topic.png", path = "../figs/")
 ```
 
 ```{r}
-lda_model <- readRDS("../doc/lda_model.rds")
+# Produce gamma values (topic assignment probabilities) from LDA model
+
+lda_model <- readRDS("../output/lda_model.rds")
 
 gammas <- tidy(lda_model, matrix = "gamma")
 
@@ -101,6 +109,8 @@ gammas_wider <- pivot_wider(gammas, id_cols = document,
 
 gammas_country <- cbind(gammas_wider, hdb$country)
 
+# Identify topic categories
+
 topic_cats <- c("Shopping", "At Home with Family", 
                 "Time with Friends", "Food", "Generic Happiness")
 
@@ -108,6 +118,8 @@ colnames(gammas_country) <- c("document",
                               paste0("Topic ", c(1:5), 
                                      " ", "(", c(topic_cats), ")"), 
                               "country")
+
+# Average topic gamma values of moments by country
 
 country_avg_gammas <- gammas_country %>%
   group_by(country) %>%
@@ -124,6 +136,8 @@ country_avg_gammas <- gammas_country %>%
 
 
 ```{r}
+# Create maps of topics
+
 topic_map_data <- left_join(world_map, country_avg_gammas, 
                      by = c("region" = "country"))
 
@@ -173,8 +187,9 @@ ggsave("Topic 5 Terms Map.png", map_topic_5, path = "../figs/",
        width = 8, height = 4)
 ```
 
-
 ```{r}
+# Create data frame of average gamma values by country
+
 country_comment_counts <- hdb %>%
   group_by(country) %>%
   summarise(`Comment Count` = n())
@@ -184,7 +199,7 @@ count_gamma_df <- left_join(country_avg_gammas, country_comment_counts)
 count_gamma_df$country.name <- countrycode(count_gamma_df$country, 
                                            "iso3c", "country.name")
 
-write.csv(count_gamma_df, file = "../doc/count_gamma_df.csv", )
+write.csv(count_gamma_df, file = "../output/count_gamma_df.csv", )
 ```
 
 

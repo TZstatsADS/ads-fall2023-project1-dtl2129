@@ -10,11 +10,11 @@ library(shiny)
 library(wordcloud2)
 library(DT)
 
-hdb <- read.csv("../doc/processed_moments_w_demog.csv")
+hdb <- read.csv("../output/processed_moments_w_demog.csv")
 
-dtm <- read_rds("../doc/dtm.rds")
+dtm <- read_rds("../output/dtm.rds")
 
-tfidf <- read_rds("../doc/tfidf.rds")
+tfidf <- read_rds("../output/tfidf.rds")
 
 analyze_country <- function(country) {
   # Extract the ISO3C code entered by the user
